@@ -102,7 +102,7 @@ print(f"\n[Hardware] Motores asignados a: {device.upper()}")
 base_model_name = "Salesforce/codegen-350M-mono"
 mask_model_name = "Salesforce/codet5p-770m"
 
-# Configuración crucial para permitir procesamiento en lote (Batching)
+# Configuración para permitir procesamiento en lote (Batching)
 base_tokenizer = transformers.AutoTokenizer.from_pretrained(base_model_name)
 base_tokenizer.pad_token = base_tokenizer.eos_token
 
@@ -123,7 +123,7 @@ mask_model = transformers.AutoModelForSeq2SeqLM.from_pretrained(
 def perturb_code_BATCH(lista_textos, mask_model, mask_tokenizer, device, n_perturbations=5):
     prompts = [f"Perturb open-source python code maintaining logic: {t}" for t in lista_textos]
     
-    # Tokenizamos todo el grupo de estudiantes a la vez con padding y truncado preventivo por velocidad
+    # Token sobre todo el grupo de estudiantes a la vez con padding y truncado preventivo por velocidad
     inputs = mask_tokenizer(prompts, return_tensors="pt", padding=True, truncation=True, max_length=100).to(device)
 
     with torch.no_grad():
@@ -159,7 +159,7 @@ def perturb_code_BATCH(lista_textos, mask_model, mask_tokenizer, device, n_pertu
 # ==========================================================
 lote_guardado = []
 tamano_guardado = 100
-BATCH_ESTUDIANTES = 8  # Procesamos 8 estudiantes en paralelo en la Titan X
+BATCH_ESTUDIANTES = 8  # 8 estudiantes en paralelo en la Titan X
 
 print(f"\nProcesamiento en Paralelo (Batch Size = {BATCH_ESTUDIANTES})...")
 
@@ -169,12 +169,11 @@ pbar = tqdm(total=len(registros_pendientes), desc="Auditando entregas masivas")
 i = 0
 while i < len(registros_pendientes):
     bloque = registros_pendientes[i : i + BATCH_ESTUDIANTES]
-    i += len(bloque)  # Avance seguro de los índices del bucle
+    i += len(bloque) 
     
     datos_validos = []
     textos_codigos = []
     
-    # 1. Leer los códigos del bloque actual de forma segura
     for fila in bloque:
         ruta_archivo = fila['ruta_real_py']
         if "Error_Ruta" in str(ruta_archivo) or not os.path.exists(ruta_archivo):
@@ -201,13 +200,13 @@ while i < len(registros_pendientes):
     # ==========================================================
     try:
         with torch.no_grad():
-            # 2. Calcular Log-Likelihood originales
+            # Calcular Log-Likelihood originales
             ll_originales = [get_log_likelihood(c, base_model, base_tokenizer, device) for c in textos_codigos]
 
-            # 3. ¡MUTACIONES EN GRUPO!
+            # mutaciones en batch
             todas_las_mutaciones = perturb_code_BATCH(textos_codigos, mask_model, mask_tokenizer, device, n_perturbations=5)
 
-        # 4. Procesar y promediar los resultados obtenidos
+        # Procesar y promediar los resultados obtenidos
         for idx, fila in enumerate(datos_validos):
             ll_orig = ll_originales[idx]
             mutaciones_del_estudiante = todas_las_mutaciones[idx]
@@ -255,7 +254,7 @@ while i < len(registros_pendientes):
         print(f"Tipo de error: {type(e_gpu).__name__}")
         print(f"Mensaje: {str(e_gpu)}")
         print("Rastreo completo del error (Traceback):")
-        traceback.print_exc()  # Escribe la línea exacta donde falló en el log
+        traceback.print_exc() 
         print("-" * 60)
         
         pbar.update(len(bloque))
@@ -263,7 +262,6 @@ while i < len(registros_pendientes):
     torch.cuda.empty_cache()
     gc.collect()
 
-# Guardar remanentes finales si quedan
 if len(lote_guardado) > 0:
     df_lote = pd.DataFrame(lote_guardado)
     if os.path.exists(csv_salida_local):
